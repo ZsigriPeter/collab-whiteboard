@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  # ==================== AUTH SERVICE ====================
+  auth-service:
+    build:
+      context: .
+      dockerfile: docker/auth.Dockerfile
+    volumes:
+      - ./backend/auth-service:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=your-super-secret-key-change-in-production
+      - DB_HOST=auth-db
+      - DB_NAME=auth_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_PORT=5432
+      - ALLOWED_HOSTS=localhost,127.0.0.1,auth-service
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - whiteboard-network
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  # ==================== BOARD SERVICE ====================
+  board-service:
+    build:
+      context: .
+      dockerfile: docker/board.Dockerfile
+    volumes:
+      - ./backend/board-service:/app
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=your-super-secret-key-change-in-production
+      - DB_HOST=board-db
+      - DB_NAME=board_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_PORT=5432
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - ALLOWED_HOSTS=localhost,127.0.0.1,board-service
+    depends_on:
+      board-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - whiteboard-network
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8001"
+
+  # ==================== REALTIME SERVICE ====================
+  realtime-service:
+    build:
+      context: .
+      dockerfile: docker/realtime.Dockerfile
+    volumes:
+      - ./backend/realtime-service:/app
+    ports:
+      - "8002:8002"
+    environment:
+      - DB_HOST=realtime-db
+      - DB_NAME=realtime_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - BOARD_SERVICE_URL=http://board-service:8001
+    depends_on:
+      redis:
+        condition: service_healthy
+      realtime-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      board-service:
+        condition: service_started
+    networks:
+      - whiteboard-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+
+  # ==================== DATABASES ====================
+  auth-db:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - whiteboard-network
+
+  board-db:
+    image: postgres:15-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: board_db
+    volumes:
+      - board_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - whiteboard-network
+
+  realtime-db:
+    image: postgres:15-alpine
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: realtime_db
+    volumes:
+      - realtime_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - whiteboard-network
+
+  # ==================== REDIS ====================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - whiteboard-network
+
+  # ==================== NGINX (API GATEWAY) ====================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - board-service
+      - realtime-service
+    networks:
+      - whiteboard-network
+
+volumes:
+  auth_pgdata:
+  board_pgdata:
+  realtime_pgdata:
+
+networks:
+  whiteboard-network:
+    driver: bridge
