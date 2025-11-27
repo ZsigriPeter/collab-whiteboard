@@ -3,7 +3,7 @@ from django.utils import timezone
 
 class Whiteboard(models.Model):
     name = models.CharField(max_length=255)
-    owner_id = models.IntegerField()  # Reference to User in auth-service
+    owner_id = models.IntegerField()
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     is_archived = models.BooleanField(default=False)
@@ -21,7 +21,7 @@ class WhiteboardPermission(models.Model):
     ]
     
     whiteboard = models.ForeignKey(Whiteboard, on_delete=models.CASCADE, related_name='permissions')
-    user_id = models.IntegerField()  # Reference to User in auth-service
+    user_id = models.IntegerField()
     permission_level = models.CharField(max_length=10, choices=PERMISSION_CHOICES, default='view')
     granted_at = models.DateTimeField(auto_now_add=True)
     

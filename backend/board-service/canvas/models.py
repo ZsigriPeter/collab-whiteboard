@@ -15,7 +15,7 @@ class CanvasObject(models.Model):
         ('image', 'Image'),
     ]
     
-    whiteboard = models.ForeignKey(Whiteboard, on_delete=models.CASCADE, related_name='objects')
+    whiteboard = models.ForeignKey(Whiteboard, on_delete=models.CASCADE, related_name='canvas_objects')
     object_type = models.CharField(max_length=20, choices=OBJECT_TYPES)
     
     # Position and dimensions

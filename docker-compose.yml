@@ -25,7 +25,9 @@ services:
     networks:
       - whiteboard-network
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py makemigrations &&
+             python manage.py migrate &&
+             python manage.py seed_users &&
              python manage.py runserver 0.0.0.0:8000"
 
   # ==================== BOARD SERVICE ====================
@@ -55,7 +57,9 @@ services:
     networks:
       - whiteboard-network
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py makemigrations &&
+             python manage.py migrate &&
+             python manage.py seed_boards &&
              python manage.py runserver 0.0.0.0:8001"
 
   # ==================== REALTIME SERVICE ====================
