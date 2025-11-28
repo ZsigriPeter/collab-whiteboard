@@ -1,29 +1,21 @@
 version: '3.8'
 
 services:
-  # ==================== FRONTEND BUILDER ====================
-  frontend-build:
+  # ==================== NGINX (with built-in frontend) ====================
+  nginx:
     build:
       context: .
-      dockerfile: docker/frontend.Dockerfile
-    volumes:
-      - frontend-dist:/dist-out
-
-  # ==================== NGINX (Serves React + API proxy) ====================
-  nginx:
-    image: nginx:alpine
+      dockerfile: docker/nginx.Dockerfile
     ports:
       - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - frontend-dist:/usr/share/nginx/html:ro
     depends_on:
-      - frontend-build
       - auth-service
       - board-service
       - realtime-service
+    restart: on-failure:5
     networks:
       - whiteboard-network
+    command: ["nginx", "-g", "daemon off;"]
   # ==================== AUTH SERVICE ====================
   auth-service:
     build:
@@ -187,7 +179,6 @@ services:
 
 
 volumes:
-  frontend-dist:
   auth_pgdata:
   board_pgdata:
   realtime_pgdata:
