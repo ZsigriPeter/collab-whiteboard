@@ -5,8 +5,28 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from .serializers import UserSerializer, UserRegistrationSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 User = get_user_model()
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.user
+
+        refresh = serializer.validated_data["refresh"]
+        access = serializer.validated_data["access"]
+
+        return Response({
+            "user": UserSerializer(user).data,
+            "tokens": {
+                "access": str(access),
+                "refresh": str(refresh),
+            }
+        })
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()

@@ -1,3 +1,4 @@
+//api/auth.js
 import api from './config';
 
 export const authAPI = {
