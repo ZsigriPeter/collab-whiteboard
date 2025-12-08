@@ -153,7 +153,6 @@ export default function Whiteboard() {
     }
 
     if (tool === TOOLS.TEXT) {
-      // Optional: open text input modal
       const text = prompt('Enter text:');
       if (text) {
         const stage = e.target.getStage();

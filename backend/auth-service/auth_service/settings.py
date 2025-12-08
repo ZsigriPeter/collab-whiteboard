@@ -18,12 +18,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    # Third party
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     
-    # Local apps
     'accounts',
 ]
 
@@ -58,7 +56,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'auth_service.wsgi.application'
 
-# Database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -89,9 +86,14 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
+    "SIGNING_KEY": config("JWT_SECRET"),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "AUDIENCE": None,
+    "ISSUER": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 
 CORS_ALLOWED_ORIGINS = [

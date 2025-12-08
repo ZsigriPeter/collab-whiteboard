@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from boards.models import Whiteboard, WhiteboardPermission  # This is correct
-from canvas.models import CanvasObject  # This is correct
+from boards.models import Whiteboard, WhiteboardPermission
+from canvas.models import CanvasObject
 import random
 
 class Command(BaseCommand):
@@ -99,10 +99,9 @@ class Command(BaseCommand):
             self.style.SUCCESS(f'✓ Created {len(permissions_data)} permissions')
         )
 
-        # Add some canvas objects to Demo Whiteboard
         self.stdout.write('\nAdding sample canvas objects to Demo Whiteboard...')
         
-        demo_board = created_boards[4]  # Demo Whiteboard
+        demo_board = created_boards[4]
         
         canvas_objects_data = [
             # Welcome text

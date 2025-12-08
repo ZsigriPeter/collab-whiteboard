@@ -21,10 +21,8 @@ export default function Canvas({ objects = [], selectedId, onSelect, onChange })
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // This is the key: Update Transformer ONLY after render
   useEffect(() => {
     if (!selectedId || !stageRef.current || !transformerRef.current) {
-      // If nothing selected, clear transformer
       transformerRef.current?.nodes([]);
       transformerRef.current?.getLayer()?.batchDraw();
       return;
@@ -37,7 +35,7 @@ export default function Canvas({ objects = [], selectedId, onSelect, onChange })
       transformerRef.current.nodes([selectedNode]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [selectedId, objects]); // Re-run when selection or objects change
+  }, [selectedId, objects]);
 
   const handleSelect = (e) => {
     e.cancelBubble = true;
@@ -48,7 +46,7 @@ export default function Canvas({ objects = [], selectedId, onSelect, onChange })
     if (id) {
       onSelect?.(id);
     } else if (e.target === stageRef.current) {
-      onSelect?.(null); // Clicked on empty space
+      onSelect?.(null);
     }
   };
 
@@ -143,11 +141,9 @@ export default function Canvas({ objects = [], selectedId, onSelect, onChange })
         <Layer>
           {objects.map(renderObject)}
 
-          {/* Transformer — never access stageRef here! */}
           <Transformer
             ref={transformerRef}
             boundBoxFunc={(oldBox, newBox) => {
-              // Optional: prevent too-small shapes
               if (newBox.width < 20 || newBox.height < 20) {
                 return oldBox;
               }

@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 from pathlib import Path
 from decouple import config
@@ -23,6 +24,18 @@ INSTALLED_APPS = [
     'boards',
     'canvas',
 ]
+
+SIMPLE_JWT = {
+    "SIGNING_KEY": config("JWT_SECRET"),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "AUDIENCE": None,
+    "ISSUER": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -75,8 +88,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'boards.authentication.SharedJWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
 
 CORS_ALLOWED_ORIGINS = [

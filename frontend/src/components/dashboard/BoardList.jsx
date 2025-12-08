@@ -105,7 +105,7 @@ export default function BoardList() {
                     </div>
                   </div>
 
-                  {/* Optional: Owner or collaborators */}
+                  {/* Owner or collaborators */}
                   {board.owner && (
                     <p className="mt-3 text-xs text-gray-500">
                       Owned by <span className="font-medium">{board.owner}</span>

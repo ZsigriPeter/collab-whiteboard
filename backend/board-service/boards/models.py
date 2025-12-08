@@ -1,17 +1,26 @@
 from django.db import models
 from django.utils import timezone
+import uuid
 
 class Whiteboard(models.Model):
     name = models.CharField(max_length=255)
-    owner_id = models.IntegerField()
+    owner_id = models.PositiveIntegerField()
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     is_archived = models.BooleanField(default=False)
     is_public = models.BooleanField(default=False)
     share_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
-    
+
+    def save(self, *args, **kwargs):
+        if not self.share_code:
+            self.share_code = uuid.uuid4().hex[:12].upper()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.name
+        return f"{self.name} (owner: {self.owner_id})"
+
+    class Meta:
+        ordering = ['-created_at']
 
 class WhiteboardPermission(models.Model):
     PERMISSION_CHOICES = [
