@@ -74,7 +74,6 @@ export default function Whiteboard() {
     }
   }, [id, isNew]);
 
-  // Auto-save every 3 seconds when objects change
   useEffect(() => {
     if (!currentBoard?.id || isNew) return;
     const timer = setTimeout(() => {
@@ -113,7 +112,6 @@ export default function Whiteboard() {
         x: 0,
         y: 0,
       };
-      // Add via store to trigger undo/redo
       useBoardStore.getState().addObject(newObj);
     }
 

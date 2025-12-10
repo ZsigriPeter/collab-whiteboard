@@ -12,6 +12,7 @@ import Login from './components/auth/Login';
 import BoardList from './components/dashboard/BoardList';
 import Whiteboard from './components/whiteboard/Whiteboard';
 import Layout from './components/layout/Layout';
+import WhiteboardPage from './pages/WhiteboardPage';
 
 const Loader = () => (
   <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
@@ -80,7 +81,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DefaultLayout>
-                <Whiteboard />
+                <WhiteboardPage />
               </DefaultLayout>
             </ProtectedRoute>
           }

@@ -1,19 +1,30 @@
 import { create } from 'zustand';
 import { boardsAPI } from '../api/boards';
 
-export const useBoardStore = create((set) => ({
+export const useBoardStore = create((set, get) => ({
   boards: [],
   currentBoard: null,
+  objects: [],
+  history: [],
+  future: [],
   isLoading: false,
+  error: null,
 
   fetchBoards: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const boards = await boardsAPI.getAll();
-      set({ boards, isLoading: false });
+      const response = await boardsAPI.getAll();
+      set({ 
+        boards: Array.isArray(response) ? response : response?.data || [],
+        isLoading: false 
+      });
     } catch (error) {
-      set({ isLoading: false });
-      throw error;
+      console.error('Failed to fetch boards:', error);
+      set({ 
+        boards: [], 
+        isLoading: false,
+        error: 'Failed to load boards'
+      });
     }
   },
 
@@ -21,31 +32,91 @@ export const useBoardStore = create((set) => ({
     set({ isLoading: true });
     try {
       const board = await boardsAPI.getById(id);
-      set({ currentBoard: board, isLoading: false });
+
+      let objects = board.canvas_objects || [];
+
+      objects = objects.map(obj => ({
+        ...obj,
+        ...(obj.data || {}),
+        points: Array.isArray(obj.data?.points) ? obj.data.points : [],
+        text: obj.data?.text || "",
+        radius: obj.data?.radius || obj.radius || 0,
+      }));
+
+      set({
+        currentBoard: board,
+        objects,
+        history: [],
+        future: [],
+        isLoading: false,
+      });
     } catch (error) {
       set({ isLoading: false });
       throw error;
     }
   },
 
-  createBoard: async (boardData) => {
-    const board = await boardsAPI.create(boardData);
-    set((state) => ({ boards: [...state.boards, board] }));
-    return board;
+
+  addObject: (obj) => {
+    const { objects, history } = get();
+    set({
+      history: [...history, objects],
+      objects: [...objects, obj],
+      future: [],
+    });
   },
 
-  updateBoard: async (id, boardData) => {
-    const board = await boardsAPI.update(id, boardData);
-    set((state) => ({
-      boards: state.boards.map((b) => (b.id === id ? board : b)),
-      currentBoard: state.currentBoard?.id === id ? board : state.currentBoard,
-    }));
+  updateObject: (id, attrs) => {
+    const { objects, history } = get();
+    set({
+      history: [...history, objects],
+      objects: objects.map((o) =>
+        o.id === id ? { ...o, ...attrs } : o
+      ),
+      future: [],
+    });
   },
 
-  deleteBoard: async (id) => {
-    await boardsAPI.delete(id);
-    set((state) => ({
-      boards: state.boards.filter((b) => b.id !== id),
+  saveObjects: async (boardId, objects) => {
+    const payload = objects.map(obj => ({
+      ...obj,
+      data: {
+        points: obj.points,
+        text: obj.text,
+        radius: obj.radius,
+      }
     }));
+
+    await boardsAPI.update(boardId, { objects: payload });
   },
+
+
+  undo: () => {
+    const { history, future, objects } = get();
+    if (history.length === 0) return;
+
+    const prev = history[history.length - 1];
+
+    set({
+      objects: prev,
+      history: history.slice(0, -1),
+      future: [objects, ...future],
+    });
+  },
+
+  redo: () => {
+    const { history, future, objects } = get();
+    if (future.length === 0) return;
+
+    const next = future[0];
+
+    set({
+      objects: next,
+      future: future.slice(1),
+      history: [...history, objects],
+    });
+  },
+
+  canUndo: () => get().history.length > 0,
+  canRedo: () => get().future.length > 0,
 }));
