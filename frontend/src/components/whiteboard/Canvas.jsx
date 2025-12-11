@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, Transformer } from 'react-konva';
 import { useCanvasStore } from '../../store/canvasStore';
+import { useRealtimeStore } from '../../store/realtimeStore';
 import { useParams } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 
 export default function Canvas() {
   const { id: whiteboardId } = useParams();
   const stageRef = useRef(null);
   const transformerRef = useRef(null);
-  
+  const token = localStorage.getItem('access_token')
+
+  const { user } = useAuthStore();
+  const userId = user?.id || 'guest';
+  const username = user?.username || 'Guest';
+
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight - 64,
@@ -24,9 +31,9 @@ export default function Canvas() {
     isLoading,
     error,
     loadObjects,
-    addObject,
-    updateObject,
-    deleteObject,
+    addObject: addObjectLocal,
+    updateObject: updateObjectLocal,
+    deleteObject: deleteObjectLocal,
     selectObject,
     deselectObject,
     startDrawing,
@@ -34,7 +41,30 @@ export default function Canvas() {
     endDrawing,
   } = useCanvasStore();
 
-  // Load objects on mount
+  const { connect, send, setMessageHandler, isConnected } = useRealtimeStore();
+
+  useEffect(() => {
+    if (token) {
+      connect(whiteboardId, token);
+
+      setMessageHandler((msg) => {
+        console.log('Received:', msg);
+
+        if (msg.type === 'object_created') {
+          addObjectLocal(whiteboardId, msg.payload);
+        }
+        if (msg.type === 'object_updated') {
+          updateObjectLocal(msg.payload.id, msg.payload);
+        }
+        if (msg.type === 'object_deleted') {
+          deleteObjectLocal(msg.id);
+        }
+      });
+
+      return () => useRealtimeStore.getState().disconnect();
+    }
+  }, [whiteboardId, token]);
+
   useEffect(() => {
     console.log('🎨 Canvas mounted, whiteboard ID:', whiteboardId);
     if (whiteboardId) {
@@ -42,7 +72,6 @@ export default function Canvas() {
     }
   }, [whiteboardId, loadObjects]);
 
-  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       setDimensions({
@@ -55,7 +84,6 @@ export default function Canvas() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle transformer
   useEffect(() => {
     if (selectedObjectId && transformerRef.current && stageRef.current) {
       const selectedNode = stageRef.current.findOne(`#object-${selectedObjectId}`);
@@ -66,8 +94,11 @@ export default function Canvas() {
     }
   }, [selectedObjectId]);
 
+  const broadcastCreate = (obj) => send({ type: 'object_created', payload: obj });
+  const broadcastUpdate = (id, updates) => send({ type: 'object_updated', payload: { id, ...updates } });
+  const broadcastDelete = (id) => send({ type: 'object_deleted', id });
+
   const handleMouseDown = (e) => {
-    // Deselect when clicking on empty space
     if (e.target === e.target.getStage()) {
       deselectObject();
       if (transformerRef.current) {
@@ -91,7 +122,9 @@ export default function Canvas() {
         stroke_width: strokeWidth,
         data: {},
       };
-      addObject(whiteboardId, newRect);
+      addObjectLocal(whiteboardId, newRect).then((obj) => {
+        broadcastCreate(obj);
+      });
     } else if (selectedTool === 'circle') {
       const newCircle = {
         object_type: 'circle',
@@ -103,7 +136,9 @@ export default function Canvas() {
         stroke_width: strokeWidth,
         data: {},
       };
-      addObject(whiteboardId, newCircle);
+      addObjectLocal(whiteboardId, newCircle).then((obj) => {
+        broadcastCreate(obj);
+      });
     } else if (selectedTool === 'text') {
       const text = prompt('Enter text:');
       if (text) {
@@ -118,7 +153,9 @@ export default function Canvas() {
             fontFamily: 'Arial',
           },
         };
-        addObject(whiteboardId, newText);
+        addObjectLocal(whiteboardId, newText).then((obj) => {
+          broadcastCreate(obj);
+        });
       }
     }
   };
@@ -143,9 +180,38 @@ export default function Canvas() {
           points: currentDrawing.map((p) => [p.x, p.y]),
         },
       };
-      addObject(whiteboardId, newLine);
-      endDrawing();
+      addObjectLocal(whiteboardId, newLine).then((obj) => {
+        broadcastCreate(obj);
+        endDrawing();
+      });
     }
+  };
+
+  const handleDragEnd = (e, obj) => {
+    const node = e.target;
+    const updates = { x: node.x(), y: node.y() };
+
+    updateObjectLocal(obj.id, updates).then(() => {
+      broadcastUpdate(obj.id, updates);
+    });
+  };
+
+  const handleTransformEnd = (e, obj) => {
+    const node = e.target;
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    node.scaleX(1); node.scaleY(1);
+
+    const updates = {
+      x: node.x(),
+      y: node.y(),
+      width: Math.max(5, node.width() * scaleX),
+      height: Math.max(5, node.height() * scaleY),
+    };
+
+    updateObjectLocal(obj.id, updates).then(() => {
+      broadcastUpdate(obj.id, updates);
+    });
   };
 
   const renderObject = (obj) => {
@@ -161,30 +227,11 @@ export default function Canvas() {
         if (selectedTool === 'select') {
           selectObject(obj.id);
         } else if (selectedTool === 'eraser') {
-          deleteObject(obj.id);
+          deleteObjectLocal(obj.id);
         }
       },
-      onDragEnd: (e) => {
-        updateObject(obj.id, {
-          x: e.target.x(),
-          y: e.target.y(),
-        });
-      },
-      onTransformEnd: (e) => {
-        const node = e.target;
-        const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
-
-        node.scaleX(1);
-        node.scaleY(1);
-
-        updateObject(obj.id, {
-          x: node.x(),
-          y: node.y(),
-          width: Math.max(5, node.width() * scaleX),
-          height: Math.max(5, node.height() * scaleY),
-        });
-      },
+      onDragEnd: (e) => handleDragEnd(e, obj),
+      onTransformEnd: (e) => handleTransformEnd(e, obj),
     };
 
     switch (obj.object_type) {
@@ -252,7 +299,6 @@ export default function Canvas() {
     );
   };
 
-  // Show loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -264,7 +310,6 @@ export default function Canvas() {
     );
   }
 
-  // Show error state
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -297,6 +342,12 @@ export default function Canvas() {
           {selectedTool === 'select' && <Transformer ref={transformerRef} />}
         </Layer>
       </Stage>
+      {/* Connection status */}
+      <div className="absolute top-4 right-4 z-50">
+        <div className={`px-3 py-1 rounded-full text-xs font-medium ${isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {isConnected ? 'Live' : 'Connecting...'}
+        </div>
+      </div>
     </div>
   );
 }

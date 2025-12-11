@@ -4,7 +4,6 @@ import json
 
 class ConnectionManager:
     def __init__(self):
-        # whiteboard_id -> [(websocket, user_id), ...]
         self.active_connections: Dict[int, List[tuple]] = {}
     
     async def connect(self, websocket: WebSocket, whiteboard_id: int, user_id: int):
@@ -15,7 +14,6 @@ class ConnectionManager:
         
         self.active_connections[whiteboard_id].append((websocket, user_id))
         
-        # Notify others that a user joined
         await self.broadcast(
             whiteboard_id,
             {"type": "user_joined", "user_id": user_id},

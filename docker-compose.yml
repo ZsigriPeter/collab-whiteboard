@@ -89,6 +89,8 @@ services:
     ports:
       - "8002:8002"
     environment:
+      - SECRET_KEY=your-super-secret-key-change-in-production
+      - JWT_SECRET=my-super-secret-jwt-key
       - DB_HOST=realtime-db
       - DB_NAME=realtime_db
       - DB_USER=postgres

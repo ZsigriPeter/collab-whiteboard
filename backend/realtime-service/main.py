@@ -1,9 +1,10 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
-import redis
+from jose import JWTError, jwt
+import os
 import json
-from typing import Dict, List
 from websocket_manager import ConnectionManager
+from decouple import config
 
 app = FastAPI(title="Realtime Collaboration Service")
 
@@ -17,22 +18,39 @@ app.add_middleware(
 
 manager = ConnectionManager()
 
+JWT_SECRET = config("JWT_SECRET")
+ALGORITHM = "HS256"
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "realtime-service"}
 
-@app.websocket("/ws/{whiteboard_id}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, whiteboard_id: int, user_id: int):
+@app.websocket("/ws/{whiteboard_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    whiteboard_id: int,
+    token: str = Query(None)
+):
+    if not token:
+        await websocket.close(code=1008, reason="Missing token")
+        return
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise JWTError()
+    except JWTError as e:
+        await websocket.close(code=1008, reason="Invalid token")
+        return
+
     await manager.connect(websocket, whiteboard_id, user_id)
-    
+
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            
-            # Broadcast to all users in the same whiteboard
             await manager.broadcast(whiteboard_id, message, exclude_user=user_id)
-            
     except WebSocketDisconnect:
         manager.disconnect(websocket, whiteboard_id, user_id)
         await manager.broadcast(
