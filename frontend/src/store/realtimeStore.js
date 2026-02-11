@@ -10,7 +10,7 @@ export const useRealtimeStore = create((set, get) => ({
     if (socket?.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${protocol}://localhost/ws/${whiteboardId}?token=${encodeURIComponent(token)}`;
+    const url = `${protocol}://${window.location.hostname}/ws/${whiteboardId}?token=${encodeURIComponent(token)}`;
 
     socket = new WebSocket(url);
 
