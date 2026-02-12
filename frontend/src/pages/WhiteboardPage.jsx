@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBoardStore } from '../store/boardStore';
+import { useRealtimeStore } from '../store/realtimeStore';
 import { useAuthStore } from '../store/authStore';
 import Toolbar from '../components/whiteboard/Toolbar';
 import Canvas from '../components/whiteboard/Canvas';
@@ -11,6 +12,7 @@ export default function WhiteboardPage() {
   const navigate = useNavigate();
   const { currentBoard, fetchBoard, isLoading } = useBoardStore();
   const { user } = useAuthStore();
+  const { connect, disconnect, onlineUsers } = useRealtimeStore();
 
   useEffect(() => {
     console.log('📋 WhiteboardPage mounted, ID:', id);
@@ -18,6 +20,17 @@ export default function WhiteboardPage() {
       fetchBoard(id);
     }
   }, [id, fetchBoard]);
+
+  useEffect(() => {
+    if (!id || !user) return;
+
+    connect(id, user);
+
+    return () => {
+      disconnect();
+    };
+  }, [id, user]);
+
 
   if (isLoading || !currentBoard) {
     return (
@@ -52,7 +65,10 @@ export default function WhiteboardPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-gray-600">
             <Users size={18} />
-            <span className="text-sm">1 user online</span>
+            <span className="text-sm">
+              {onlineUsers.length} user{onlineUsers.length !== 1 && "s"} online
+            </span>
+
           </div>
           {user && (
             <div className="flex items-center gap-2">

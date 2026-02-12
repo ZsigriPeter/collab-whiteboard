@@ -53,7 +53,11 @@ async def websocket_endpoint(
             await manager.broadcast(whiteboard_id, message, exclude_user=user_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, whiteboard_id, user_id)
+
         await manager.broadcast(
             whiteboard_id,
-            {"type": "user_left", "user_id": user_id}
+            {
+                "type": "online_users",
+                "users": manager.get_online_users(whiteboard_id)
+            }
         )

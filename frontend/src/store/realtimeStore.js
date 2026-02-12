@@ -6,7 +6,7 @@ export const useRealtimeStore = create((set, get) => ({
   isConnected: false,
   onlineUsers: [],
 
-  connect: (whiteboardId, token) => { 
+  connect: (whiteboardId, token) => {
     if (socket?.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -21,6 +21,10 @@ export const useRealtimeStore = create((set, get) => ({
 
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
+
+      if (msg.type === "online_users") {
+        set({ onlineUsers: msg.users });
+      }
 
       if (get().onMessage) {
         get().onMessage(msg);
