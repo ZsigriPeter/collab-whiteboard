@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Circle, Line, Text, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Circle, Line, Text, Transformer, Ellipse } from 'react-konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useRealtimeStore } from '../../store/realtimeStore';
 import { useParams } from 'react-router-dom';
@@ -19,6 +19,10 @@ export default function Canvas() {
     width: window.innerWidth,
     height: window.innerHeight - 64,
   });
+
+  const [shapeStart, setShapeStart] = useState(null);
+  const [previewShape, setPreviewShape] = useState(null);
+
 
   const {
     objects,
@@ -111,33 +115,14 @@ export default function Canvas() {
 
     if (selectedTool === 'pen') {
       startDrawing(point);
-    } else if (selectedTool === 'rectangle') {
-      const newRect = {
-        object_type: 'rectangle',
+    } else if (selectedTool === 'rectangle' || selectedTool === 'circle') {
+      setShapeStart(point);
+      setPreviewShape({
+        type: selectedTool,
         x: point.x,
         y: point.y,
-        width: 100,
-        height: 100,
-        color: selectedColor,
-        stroke_width: strokeWidth,
-        data: {},
-      };
-      addObjectLocal(whiteboardId, newRect).then((obj) => {
-        broadcastCreate(obj);
-      });
-    } else if (selectedTool === 'circle') {
-      const newCircle = {
-        object_type: 'circle',
-        x: point.x,
-        y: point.y,
-        width: 100,
-        height: 100,
-        color: selectedColor,
-        stroke_width: strokeWidth,
-        data: {},
-      };
-      addObjectLocal(whiteboardId, newCircle).then((obj) => {
-        broadcastCreate(obj);
+        width: 0,
+        height: 0,
       });
     } else if (selectedTool === 'text') {
       const text = prompt('Enter text:');
@@ -161,31 +146,99 @@ export default function Canvas() {
   };
 
   const handleMouseMove = (e) => {
-    if (!isDrawing || selectedTool !== 'pen') return;
-
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
-    continueDrawing(point);
+
+    if (isDrawing && selectedTool === 'pen') {
+      continueDrawing(point);
+    }
+
+    if (shapeStart && previewShape) {
+      const width = point.x - shapeStart.x;
+      const height = point.y - shapeStart.y;
+
+      setPreviewShape(prev => ({
+        ...prev,
+        width,
+        height,
+      }));
+    }
   };
 
+
   const handleMouseUp = () => {
-    if (isDrawing && selectedTool === 'pen' && currentDrawing && currentDrawing.length > 1) {
+    if (previewShape && shapeStart) {
+      const { x, y, width, height, type } = previewShape;
+
+      const normalizedX = width < 0 ? x + width : x;
+      const normalizedY = height < 0 ? y + height : y;
+      const normalizedWidth = Math.abs(width);
+      const normalizedHeight = Math.abs(height);
+
+      let newShape;
+
+      if (type === 'circle') {
+        newShape = {
+          object_type: 'circle',
+          // ✅ STORE CENTER
+          x: normalizedX + normalizedWidth / 2,
+          y: normalizedY + normalizedHeight / 2,
+          width: normalizedWidth,
+          height: normalizedHeight,
+          color: selectedColor,
+          stroke_width: strokeWidth,
+          data: {},
+        };
+      } else {
+        newShape = {
+          object_type: 'rectangle',
+          x: normalizedX,
+          y: normalizedY,
+          width: normalizedWidth,
+          height: normalizedHeight,
+          color: selectedColor,
+          stroke_width: strokeWidth,
+          data: {},
+        };
+      }
+
+      addObjectLocal(whiteboardId, newShape).then((obj) => {
+        broadcastCreate(obj);
+      });
+
+      setPreviewShape(null);
+      setShapeStart(null);
+      return;
+    }
+
+    if (isDrawing && selectedTool === 'pen' && currentDrawing?.length > 1) {
+
+      const startX = currentDrawing[0].x;
+      const startY = currentDrawing[0].y;
+
+      const relativePoints = currentDrawing.flatMap(p => [
+        p.x - startX,
+        p.y - startY
+      ]);
+
       const newLine = {
         object_type: 'freehand',
-        x: currentDrawing[0].x,
-        y: currentDrawing[0].y,
+        x: startX,
+        y: startY,
         color: selectedColor,
         stroke_width: strokeWidth,
         data: {
-          points: currentDrawing.map((p) => [p.x, p.y]),
+          points: relativePoints,
         },
       };
+
       addObjectLocal(whiteboardId, newLine).then((obj) => {
         broadcastCreate(obj);
         endDrawing();
       });
     }
   };
+
 
   const handleDragEnd = (e, obj) => {
     const node = e.target;
@@ -247,9 +300,10 @@ export default function Canvas() {
 
       case 'circle':
         return (
-          <Circle
+          <Ellipse
             {...commonProps}
-            radius={(obj.width || 100) / 2}
+            radiusX={obj.width / 2}
+            radiusY={obj.height / 2}
             fill="transparent"
           />
         );
@@ -269,7 +323,7 @@ export default function Canvas() {
         return (
           <Line
             {...commonProps}
-            points={obj.data?.points?.flat() || []}
+            points={obj.data?.points || []}
             stroke={obj.color}
             strokeWidth={obj.stroke_width}
             tension={0.5}
@@ -337,6 +391,37 @@ export default function Canvas() {
         onMouseUp={handleMouseUp}
       >
         <Layer>
+          {previewShape && (
+            previewShape.type === 'rectangle' ? (
+              <Rect
+                x={previewShape.x}
+                y={previewShape.y}
+                width={previewShape.width}
+                height={previewShape.height}
+                stroke={selectedColor}
+                strokeWidth={strokeWidth}
+                dash={[4, 4]}
+              />
+            ) : (
+              <Ellipse
+                x={
+                  (previewShape.width < 0
+                    ? previewShape.x + previewShape.width
+                    : previewShape.x) + Math.abs(previewShape.width) / 2
+                }
+                y={
+                  (previewShape.height < 0
+                    ? previewShape.y + previewShape.height
+                    : previewShape.y) + Math.abs(previewShape.height) / 2
+                }
+                radiusX={Math.abs(previewShape.width) / 2}
+                radiusY={Math.abs(previewShape.height) / 2}
+                stroke={selectedColor}
+                strokeWidth={strokeWidth}
+                dash={[4, 4]}
+              />
+            )
+          )}
           {objects.map(renderObject)}
           {renderCurrentDrawing()}
           {selectedTool === 'select' && <Transformer ref={transformerRef} />}
