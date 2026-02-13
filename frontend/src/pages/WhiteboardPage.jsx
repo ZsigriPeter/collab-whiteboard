@@ -4,7 +4,7 @@ import { useBoardStore } from '../store/boardStore';
 import { useRealtimeStore } from '../store/realtimeStore';
 import { useAuthStore } from '../store/authStore';
 import Toolbar from '../components/whiteboard/Toolbar';
-import Canvas from '../components/whiteboard/Canvas';
+import Canvas from '../components/whiteboard/canvas/Canvas';
 import { ArrowLeft, Users } from 'lucide-react';
 
 export default function WhiteboardPage() {
