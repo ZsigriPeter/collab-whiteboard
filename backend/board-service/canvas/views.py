@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.utils import timezone
 from .models import CanvasObject
 from .serializers import (
     CanvasObjectSerializer, 
@@ -105,23 +106,31 @@ class CanvasObjectViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
     
     def create(self, request, *args, **kwargs):
-        """Create a new canvas object"""
         whiteboard_id = request.data.get('whiteboard')
-        
+
         if not whiteboard_id:
             return Response(
                 {'error': 'whiteboard is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if not self._check_whiteboard_permission(whiteboard_id, 'edit'):
             return Response(
                 {'error': 'You do not have permission to edit this whiteboard'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        return super().create(request, *args, **kwargs)
-    
+
+        create_serializer = CanvasObjectCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        create_serializer.is_valid(raise_exception=True)
+        instance = create_serializer.save()
+
+        response_serializer = CanvasObjectSerializer(instance)
+
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
     def update(self, request, *args, **kwargs):
         """Update a canvas object"""
         obj = self.get_object()
