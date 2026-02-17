@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from './store/authStore';
 
 import Login from './components/auth/Login';
+import Register from './components/auth/Register';
 import BoardList from './components/dashboard/BoardList';
 import Layout from './components/layout/Layout';
 import WhiteboardPage from './pages/WhiteboardPage';
@@ -59,6 +60,14 @@ function App() {
           element={
             <PublicRoute>
               <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <Register />
             </PublicRoute>
           }
         />

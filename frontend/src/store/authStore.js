@@ -19,6 +19,27 @@ export const useAuthStore = create((set) => ({
     }
   },
 
+  register: async (username, email, password,password_confirm,first_name,last_name) => {
+    set({ isLoading: true });
+    try {
+      const userData={
+        username:username,
+        email:email,
+        password:password,
+        password_confirm:password_confirm, 
+        first_name:first_name,
+        last_name:last_name
+      };
+      const data = await authAPI.register(userData);
+      localStorage.setItem('access_token', data.tokens.access);
+      localStorage.setItem('refresh_token', data.tokens.refresh);
+      set({ user: data.user, isAuthenticated: true, isLoading: false });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
   loadUser: async () => {
     const token = localStorage.getItem('access_token');
     if (!token) {

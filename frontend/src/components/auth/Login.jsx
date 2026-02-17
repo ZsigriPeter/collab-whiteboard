@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Loader2 } from 'lucide-react';
 
 export default function Login() {
@@ -129,6 +129,15 @@ export default function Login() {
                 </>
               )}
             </button>
+            <p className="text-center text-sm text-gray-500">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="text-indigo-600 font-medium hover:text-indigo-700 hover:underline transition"
+              >
+                Sign up
+              </Link>
+            </p>
           </form>
 
           {/* Demo credentials */}
